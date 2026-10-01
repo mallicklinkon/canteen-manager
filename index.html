@@ -37,7 +37,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 <header class="top"><div><div class="brand">🍽️ Canteen Manager</div><div class="sub">Nursing Training School • প্রায় ৪৫০ জন শিক্ষার্থী</div></div><input class="month" id="month" type="month"></header>
 <div class="wrap">
 <nav class="nav">
-<button class="active" data-page="dash">Dashboard</button><button data-page="students">Students / Payment</button><button data-page="bills">মাসিক Bill / বকেয়া</button><button data-page="purchase">বাজার / Purchase</button><button data-page="stock">Stock / Supplier</button><button data-page="menu">দৈনিক Menu</button><button data-page="labor">Labour Payment</button><button data-page="pl">Profit & Loss</button>
+<button class="active" data-page="dash">Dashboard</button><button data-page="students">Students / Payment</button><button data-page="bills">মাসিক Bill / বকেয়া</button><button data-page="purchase">বাজার / Purchase</button><button data-page="stock">Stock / Supplier</button><button data-page="menu">দৈনিক Menu</button><button data-page="labor">Labour Payment</button><button data-page="pl">Profit & Loss</button><button data-page="qrreg">📲 QR Registration</button><button data-page="cloud">☁️ Cloud Setup</button><button data-page="auth">🔑 Admin Login</button>
 </nav>
 
 <section id="dash" class="page show">
@@ -52,6 +52,7 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 <div class="card"><h2>এই মাসের সারাংশ</h2><div class="note" id="summary">কোনও লেনদেন নেই। প্রথমে Student Payment বা Purchase যোগ করুন।</div></div>
 </div>
 <div class="section card"><h2>সাম্প্রতিক লেনদেন</h2><table><thead><tr><th>তারিখ</th><th>ধরন</th><th>বিবরণ</th><th class="right">টাকা</th></tr></thead><tbody id="recent"></tbody></table></div>
+<div class="card"><h2>☁️ Cloud Connection</h2><p class="muted">Supabase Cloud database connect করতে নিচের button ব্যবহার করুন।</p><button class="btn" onclick="showPage('cloud')">☁️ Open Cloud Setup</button></div>
 </section>
 
 <section id="students" class="page">
@@ -290,12 +291,13 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;p
 <section id="cloud" class="page" style="display:none">
 <div class="card">
 <h2>☁️ Cloud Database Setup</h2>
-<p class="muted">Online registration-এর জন্য Supabase URL ও anon/public key ব্যবহার করুন। Service-role/private key কখনো browser app-এ দেবেন না।</p>
+<p class="muted">Online registration-এর জন্য Supabase Project URL ও Publishable key ব্যবহার করুন। Secret key কখনো browser app-এ দেবেন না।</p>
 <div class="v3grid">
 <input id="cloudUrl" placeholder="Supabase Project URL">
-<input id="cloudKey" placeholder="Supabase anon/public key">
+<input id="cloudKey" placeholder="Supabase Publishable key">
 <button onclick="saveCloudConfig()">Save Cloud Settings</button>
 <button onclick="testCloud()">Test Connection</button>
+<p class="muted" style="margin-top:8px">Publishable key সাধারণত <b>sb_publishable_...</b> দিয়ে শুরু হয়। Secret key (<b>sb_secret_...</b>) ব্যবহার করবেন না।</p>
 </div>
 <div id="cloudStatus"></div>
 <div id="syncStatus" class="muted" style="margin-top:10px"></div>
@@ -361,7 +363,16 @@ function addStudent(){let name=sName.value.trim(),amount=+sAmount.value;if(!name
 function addPurchase(){let item=pItem.value.trim(),amount=+pAmount.value;if(!item||!amount)return alert('Item ও টাকা দিন');db.purchases.push({id:Date.now(),date:pDate.value,cat:pCat.value,item,qty:pQty.value,amount,vendor:pVendor.value});pItem.value='';pQty.value='';pAmount.value='';pVendor.value='';save()}
 function addLabor(){let name=lName.value.trim(),amount=+lAmount.value;if(!name||!amount)return alert('নাম ও টাকা দিন');db.labors.push({id:Date.now(),date:lDate.value,name,type:lType.value,amount,note:lNote.value});lName.value='';lAmount.value='';lNote.value='';save()}
 function del(type,id){db[type]=db[type].filter(x=>x.id!==id);save()}
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));document.getElementById(b.dataset.page).classList.add('show')});
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('show'));
+  const page=document.getElementById(pageId);
+  if(page) page.classList.add('show');
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===pageId));
+  if(pageId==='cloud' && typeof loadCloudConfig==='function') loadCloudConfig();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
 document.getElementById('month').onchange=render;render();
 
 function addMasterStudent(){
@@ -728,7 +739,7 @@ function saveCloudConfig(){
   const url=document.getElementById('cloudUrl').value.trim();
   const key=document.getElementById('cloudKey').value.trim();
   if(!/^https:\/\/.+\.supabase\.co/.test(url)||!key){
-    alert('Valid Supabase Project URL এবং anon/public key দিন।');
+    alert('Valid Supabase Project URL এবং Publishable key দিন।');
     return;
   }
   localStorage.setItem('canteen_cloud_config',JSON.stringify({url,key}));
