@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Canteen Manager</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--text:#172033;--muted:#687386;--line:#e5e9f0;--accent:#2563eb;--good:#15803d;--bad:#dc2626;--shadow:0 8px 24px rgba(25,40,70,.07)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Noto Sans Bengali,sans-serif;color:var(--text)}
+.app{min-height:100vh}.top{background:#172554;color:#fff;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:15px;position:sticky;top:0;z-index:5}.brand{font-size:21px;font-weight:800}.sub{font-size:12px;opacity:.75;margin-top:3px}.month{background:#fff;color:#172033;border:0;border-radius:9px;padding:9px 11px}
+.wrap{max-width:1250px;margin:auto;padding:20px}.nav{display:flex;gap:8px;overflow:auto;margin-bottom:18px}.nav button{border:1px solid var(--line);background:var(--card);padding:10px 14px;border-radius:10px;white-space:nowrap;cursor:pointer}.nav button.active{background:var(--accent);color:white;border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px;box-shadow:var(--shadow)}.label{color:var(--muted);font-size:13px}.num{font-size:25px;font-weight:800;margin-top:6px}.good{color:var(--good)}.bad{color:var(--bad)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.section{margin-top:20px}.section h2{font-size:17px;margin:0 0 12px}.bar{height:12px;background:#e9edf3;border-radius:20px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:var(--accent);border-radius:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}.right{text-align:right}.btn{border:0;background:var(--accent);color:#fff;border-radius:9px;padding:10px 14px;cursor:pointer}.btn.secondary{background:#eef2ff;color:#1d4ed8}.btn.danger{background:#fee2e2;color:#991b1b}
+.form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.form input,.form select{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:#fff}.full{grid-column:1/-1}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.page{display:none}.page.show{display:block}.note{padding:12px;background:#eff6ff;border-radius:10px;color:#1e40af;font-size:13px}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.form{grid-template-columns:1fr 1fr}.top{align-items:flex-start;flex-direction:column}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.form{grid-template-columns:1fr}.wrap{padding:12px}.top{padding:15px}}
+
+/* V3 additions */
+.v3grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2ff;font-size:12px}
+.danger{color:#b91c1c}.success{color:#15803d}.muted{color:#64748b}
+.smallbtn{padding:7px 10px;font-size:12px}
+@media print{.no-print,nav,.actions{display:none!important}body{background:#fff}.card{box-shadow:none;border:1px solid #ddd}}
+
+@media(max-width:600px){
+  .v3grid{grid-template-columns:1fr}
+  button{width:100%;min-height:42px}
+  input,select{width:100%;box-sizing:border-box;min-height:42px}
+  table{font-size:12px}
+}
+<style>#qrCanvas canvas,#qrCanvas img{display:block;margin:15px auto}</style></style>
+
+<style>
+#cloudModal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.62);padding:18px;align-items:center;justify-content:center}
+#cloudModal .modal-card{width:min(620px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+#cloudModal .modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+#cloudModal .close-btn{background:#eef2f7;color:#172033;border:0;border-radius:9px;padding:8px 12px;font-size:20px;cursor:pointer}
+#cloudModal input{width:100%;min-height:44px;padding:10px;border:1px solid #e5e9f0;border-radius:9px;margin-top:8px}
+#cloudModal .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+#cloudModal .modal-actions button{min-height:44px}
+@media(max-width:520px){#cloudModal{padding:10px}#cloudModal .modal-actions{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top"><div><div class="brand">🍽️ Canteen Manager</div><div class="sub">Nursing Training School • প্রায় ৪৫০ জন শিক্ষার্থী</div></div><input class="month" id="month" type="month"></header>
+<div class="wrap">
+<nav class="nav">
+<button class="active" data-page="dash">Dashboard</button><button data-page="students">Students / Payment</button><button data-page="bills">মাসিক Bill / বকেয়া</button><button data-page="purchase">বাজার / Purchase</button><button data-page="stock">Stock / Supplier</button><button data-page="menu">দৈনিক Menu</button><button data-page="labor">Labour Payment</button><button data-page="pl">Profit & Loss</button><button data-page="qrreg">📲 QR Registration</button><button type="button" onclick="openCloudSetup()">☁️ Cloud Setup</button><button data-page="auth">🔑 Admin Login</button>
+</nav>
+
+<section id="dash" class="page show">
+<div class="grid">
+<div class="card"><div class="label">এই মাসে মোট আয়</div><div class="num good" id="income">₹0</div></div>
+<div class="card"><div class="label">বাজার খরচ</div><div class="num" id="food">₹0</div></div>
+<div class="card"><div class="label">শ্রমিক খরচ</div><div class="num" id="labour">₹0</div></div>
+<div class="card"><div class="label">নেট Profit / Loss</div><div class="num" id="profit">₹0</div></div>
+</div>
+<div class="two">
+<div class="card"><h2>খরচের ভাগ</h2><div>বাজার <span class="right" style="float:right" id="foodPct">0%</span></div><div class="bar"><i id="foodBar" style="width:0"></i></div><div style="margin-top:12px">শ্রমিক <span class="right" style="float:right" id="labPct">0%</span></div><div class="bar"><i id="labBar" style="width:0"></i></div></div>
+<div class="card"><h2>এই মাসের সারাংশ</h2><div class="note" id="summary">কোনও লেনদেন নেই। প্রথমে Student Payment বা Purchase যোগ করুন।</div></div>
+</div>
+<div class="section card"><h2>সাম্প্রতিক লেনদেন</h2><table><thead><tr><th>তারিখ</th><th>ধরন</th><th>বিবরণ</th><th class="right">টাকা</th></tr></thead><tbody id="recent"></tbody></table></div>
+<div class="card"><h2>☁️ Cloud Connection</h2><p class="muted">Supabase Cloud database connect করতে নিচের button ব্যবহার করুন।</p><button class="btn" type="button" onclick="openCloudSetup()">☁️ Open Cloud Setup</button></div>
+</section>
+
+<section id="students" class="page">
+<div class="card"><h2>Student Payment যোগ করুন</h2><div class="form"><input id="sStudentId" placeholder="Student ID (optional)"><input id="sName" placeholder="ছাত্রীর নাম / ID"><input id="sDate" type="date"><input id="sAmount" type="number" placeholder="টাকার পরিমাণ"><select id="sMethod"><option>Cash</option><option>UPI</option><option>Bank</option></select></div><div class="actions"><button class="btn" onclick="addStudent()">Payment Save</button></div></div>
+<div class="section card"><h2>Payment Register</h2><table><thead><tr><th>তারিখ</th><th>নাম / ID</th><th>Method</th><th class="right">Amount</th><th></th></tr></thead><tbody id="studentsTable"></tbody></table></div>
+</section>
+
+
+<section id="bills" class="page">
+<div class="card"><h2>মাসিক Bill / Student Due</h2><div class="form">
+<input id="bId" placeholder="Student ID"><input id="bName" placeholder="ছাত্রীর নাম">
+<input id="bMonth" type="month"><input id="bBill" type="number" placeholder="মাসিক বিল">
+<input id="bPaid" type="number" placeholder="এই মাসে Paid">
+</div><div class="actions"><button class="btn" onclick="addBill()">Bill Save</button></div></div>
+<div class="section card"><h2>Student Billing</h2><table><thead><tr><th>ID</th><th>Name</th><th>Month</th><th>Bill</th><th>Paid</th><th>Due</th><th></th></tr></thead><tbody id="billsTable"></tbody></table></div>
+</section>
+
+<section id="stock" class="page">
+<div class="card"><h2>Stock / Supplier</h2><div class="form">
+<input id="stDate" type="date"><input id="stItem" placeholder="Item">
+<input id="stUnit" placeholder="Unit (kg/litre/pcs)"><input id="stQty" type="number" placeholder="Quantity">
+<input id="stRate" type="number" placeholder="Rate"><input id="stSupplier" placeholder="Supplier">
+</div><div class="actions"><button class="btn" onclick="addStock()">Stock Save</button></div></div>
+<div class="section card"><h2>Stock Register</h2><table><thead><tr><th>Date</th><th>Item</th><th>Qty</th><th>Unit</th><th>Rate</th><th>Supplier</th><th>Total</th><th></th></tr></thead><tbody id="stockTable"></tbody></table></div>
+</section>
+
+<section id="menu" class="page">
+<div class="card"><h2>দৈনিক Menu</h2><div class="form">
+<input id="mDate" type="date"><input id="mBreakfast" placeholder="Breakfast">
+<input id="mLunch" placeholder="Lunch"><input id="mDinner" placeholder="Dinner">
+<input id="mSpecial" class="full" placeholder="Special / Note">
+</div><div class="actions"><button class="btn" onclick="addMenu()">Menu Save</button></div></div>
+<div class="section card"><h2>Menu Register</h2><table><thead><tr><th>Date</th><th>Breakfast</th><th>Lunch</th><th>Dinner</th><th>Note</th><th></th></tr></thead><tbody id="menuTable"></tbody></table></div>
+</section>
+
+<section id="purchase" class="page">
+<div class="card"><h2>বাজার / Food Purchase</h2><div class="form"><input id="pDate" type="date"><select id="pCat"><option>সবজি</option><option>মাছ</option><option>মাংস</option><option>চাল/ডাল</option><option>মশলা/তেল</option><option>দুধ/ডিম</option><option>অন্যান্য</option></select><input id="pItem" placeholder="কি কিনেছেন?"><input id="pQty" placeholder="পরিমাণ"><input id="pAmount" type="number" placeholder="টাকার পরিমাণ"><input id="pVendor" placeholder="দোকান / Supplier"></div><div class="actions"><button class="btn" onclick="addPurchase()">Purchase Save</button></div></div>
+<div class="section card"><h2>Purchase Register</h2><table><thead><tr><th>তারিখ</th><th>Category</th><th>Item</th><th>Qty</th><th>Supplier</th><th class="right">Amount</th><th></th></tr></thead><tbody id="purchaseTable"></tbody></table></div>
+</section>
+
+<section id="labor" class="page">
+<div class="card"><h2>Labour Payment</h2><div class="form"><input id="lDate" type="date"><input id="lName" placeholder="শ্রমিকের নাম"><select id="lType"><option>Daily Wage</option><option>Monthly Salary</option><option>Overtime</option><option>Other</option></select><input id="lAmount" type="number" placeholder="টাকার পরিমাণ"><input id="lNote" placeholder="নোট"></div><div class="actions"><button class="btn" onclick="addLabor()">Payment Save</button></div></div>
+<div class="section card"><h2>Labour Register</h2><table><thead><tr><th>তারিখ</th><th>নাম</th><th>Type</th><th>Note</th><th class="right">Amount</th><th></th></tr></thead><tbody id="laborTable"></tbody></table></div>
+</section>
+
+<section id="pl" class="page">
+<div class="grid"><div class="card"><div class="label">Revenue</div><div class="num good" id="plIncome">₹0</div></div><div class="card"><div class="label">Food Purchase</div><div class="num" id="plFood">₹0</div></div><div class="card"><div class="label">Labour</div><div class="num" id="plLabour">₹0</div></div><div class="card"><div class="label">Net P/L</div><div class="num" id="plProfit">₹0</div></div></div>
+<div class="section card"><h2>Collection Breakdown</h2><table><tbody><tr><td>Cash Collection</td><td class="right" id="cashTotal">₹0</td></tr><tr><td>UPI Collection</td><td class="right" id="upiTotal">₹0</td></tr><tr><td>Bank Collection</td><td class="right" id="bankTotal">₹0</td></tr><tr><td>Total Outstanding Due</td><td class="right bad" id="dueTotal">₹0</td></tr></tbody></table></div>
+<div class="section card"><h2>Monthly Profit & Loss</h2><table><tbody><tr><td>Total Student Collection</td><td class="right" id="r1">₹0</td></tr><tr><td>Less: Food & Market</td><td class="right" id="r2">₹0</td></tr><tr><td>Less: Labour</td><td class="right" id="r3">₹0</td></tr><tr><th>Net Profit / Loss</th><th class="right" id="r4">₹0</th></tr></tbody></table></div>
+</section>
+</div></div>
+
+<section id="master" class="page" style="display:none">
+  <div class="card">
+    <h2>👩‍🎓 Student Master List</h2>
+    <p class="muted">প্রায় 450 জন ছাত্রীর ID, নাম ও ব্যাচ/রুম একবার সংরক্ষণ করুন।</p>
+    <div class="v3grid">
+      <input id="smId" placeholder="Student ID / Roll">
+      <input id="smName" placeholder="Student Name">
+      <input id="smBatch" placeholder="Batch / Room">
+      <button onclick="addMasterStudent()">Add Student</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Student List</h3>
+    <input id="smSearch" placeholder="Search ID / name" oninput="renderMaster()">
+    <div id="masterTable"></div>
+  </div>
+</section>
+
+<section id="expense" class="page" style="display:none">
+  <div class="card">
+    <h2>💸 Other Expenses</h2>
+    <p class="muted">Food purchase ও labour-এর বাইরে rent, gas, electricity, transport, repair ইত্যাদি এখানে রাখুন।</p>
+    <div class="v3grid">
+      <input id="eDate" type="date">
+      <select id="eCat">
+        <option>Electricity</option><option>Gas</option><option>Rent</option>
+        <option>Transport</option><option>Cleaning</option><option>Repair</option>
+        <option>Water</option><option>Miscellaneous</option>
+      </select>
+      <input id="eNote" placeholder="Description">
+      <input id="eAmount" type="number" step="0.01" placeholder="Amount">
+      <select id="eMethod"><option>Cash</option><option>UPI</option><option>Bank</option></select>
+      <button onclick="addExpense()">Save Expense</button>
+    </div>
+  </div>
+  <div class="card"><h3>Expense Ledger</h3><div id="expenseTable"></div></div>
+</section>
+
+<section id="reports" class="page" style="display:none">
+  <div class="card">
+    <h2>📊 Monthly Reports & Backup</h2>
+    <div class="v3grid">
+      <input id="reportMonth" type="month">
+      <button onclick="renderReport()">Generate Report</button>
+      <button onclick="window.print()">🖨️ Print / Save PDF</button>
+      <button onclick="exportBackup()">⬇️ Backup Data</button>
+      <label class="button" style="display:flex;align-items:center;justify-content:center;cursor:pointer">
+        ⬆️ Restore Backup <input type="file" id="restoreFile" accept=".json" onchange="restoreBackup(event)" style="display:none">
+      </label>
+    </div>
+  </div>
+  <div id="reportOutput" class="card"></div>
+</section>
+
+<section id="history" class="page" style="display:none">
+  <div class="card">
+    <h2>💳 Student Payment History</h2>
+    <div class="v3grid">
+      <input id="histSearch" placeholder="Student ID / Name" oninput="renderHistory()">
+      <input id="histMonth" type="month" onchange="renderHistory()">
+      <button onclick="exportPaymentsCSV()">⬇️ Export Payments CSV</button>
+    </div>
+  </div>
+  <div class="card"><div id="historyTable"></div></div>
+</section>
+
+<section id="suppliers" class="page" style="display:none">
+  <div class="card">
+    <h2>🚚 Supplier Ledger</h2>
+    <p class="muted">Purchase-এর supplier অনুযায়ী মোট কেনাকাটা ও payable track করুন।</p>
+    <div class="v3grid">
+      <input id="supSearch" placeholder="Supplier name" oninput="renderSuppliers()">
+      <button onclick="exportPurchasesCSV()">⬇️ Export Purchase CSV</button>
+    </div>
+  </div>
+  <div class="card"><div id="supplierTable"></div></div>
+</section>
+
+<section id="attendance" class="page" style="display:none">
+<div class="card"><h2>🍽️ Daily Attendance / Meal Count</h2>
+<p class="muted">কতজন breakfast/lunch/dinner খেলেন তা রাখুন।</p>
+<div class="v3grid">
+<input id="aDate" type="date"><input id="aCount" type="number" placeholder="Total students">
+<input id="aBreakfast" type="number" placeholder="Breakfast count"><input id="aLunch" type="number" placeholder="Lunch count">
+<input id="aDinner" type="number" placeholder="Dinner count"><input id="aNote" placeholder="Note">
+<button onclick="addAttendance()">Save Daily Count</button>
+</div></div>
+<div class="card"><div id="attendanceTable"></div></div>
+</section>
+
+<section id="stockledger" class="page" style="display:none">
+<div class="card"><h2>📦 Stock In / Out</h2>
+<div class="v3grid">
+<input id="slDate" type="date"><input id="slItem" placeholder="Item">
+<input id="slUnit" placeholder="Unit (kg/litre/pcs)"><input id="slIn" type="number" step="0.01" placeholder="Stock In">
+<input id="slOut" type="number" step="0.01" placeholder="Stock Out / Used"><input id="slNote" placeholder="Note">
+<button onclick="addStockLedger()">Save Stock</button>
+</div></div>
+<div class="card"><div id="stockLedgerTable"></div></div>
+</section>
+
+<section id="closing" class="page" style="display:none">
+<div class="card"><h2>💵 Daily Cash Closing</h2>
+<div class="v3grid">
+<input id="cDate" type="date"><input id="cOpening" type="number" step="0.01" placeholder="Opening Cash">
+<input id="cExtra" type="number" step="0.01" placeholder="Other Cash In">
+<input id="cWithdraw" type="number" step="0.01" placeholder="Cash Withdrawal">
+<input id="cActual" type="number" step="0.01" placeholder="Actual Cash in Hand">
+<button onclick="saveClosing()">Save Closing</button>
+</div><div id="closingResult"></div></div>
+<div class="card"><div id="closingTable"></div></div>
+</section>
+
+<section id="settings" class="page" style="display:none">
+<div class="card"><h2>🔐 Admin PIN</h2>
+<p class="muted">এই browser-এ app খুললে PIN চাইবে। এটি local protection; server-level security নয়।</p>
+<div class="v3grid">
+<input id="newPin" type="password" inputmode="numeric" maxlength="8" placeholder="New PIN">
+<button onclick="setAdminPin()">Set / Change PIN</button>
+<button onclick="lockApp()">Lock Now</button>
+</div></div></section>
+
+<section id="operations" class="page" style="display:none">
+  <div class="card">
+    <h2>⚡ Quick Operations</h2>
+    <p class="muted">প্রতিদিনের কাজ দ্রুত করার জন্য এক জায়গায় গুরুত্বপূর্ণ অপশন।</p>
+    <div class="v3grid">
+      <button onclick="quickBill()">🧾 Create Monthly Bills</button>
+      <button onclick="showPage('history')">💳 Search Payments</button>
+      <button onclick="showPage('stockledger')">📦 Check Stock</button>
+      <button onclick="showPage('closing')">💵 Cash Closing</button>
+      <button onclick="showPage('reports')">📊 Monthly Report</button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>📌 Current Month Snapshot</h3>
+    <div id="quickSnapshot"></div>
+  </div>
+</section>
+
+<section id="qrreg" class="page" style="display:none">
+  <div class="card">
+    <h2>📲 QR Registration</h2>
+    <p class="muted">QR scan করলে registration form খুলবে। Submit করলে automatic ID তৈরি হবে।</p>
+<div class="v3grid" style="margin-top:12px">
+<input id="publicAppUrl" placeholder="Online App URL (যেমন https://your-site...)">
+<button onclick="savePublicAppUrl()">Save Online URL</button>
+</div>
+<p class="muted">এই URL-টি online-এ প্রকাশিত registration app-এর URL হতে হবে।</p>
+
+    <div class="v3grid">
+      <button onclick="showRegistrationQR('student')">👩‍🎓 Student Registration QR</button>
+      <button onclick="showRegistrationQR('labour')">👷 Labour Registration QR</button>
+    </div>
+    <div id="qrBox" style="text-align:center;margin-top:20px"></div>
+<div id="qrActions" style="display:none;text-align:center;margin-top:12px">
+  <button onclick="downloadRegistrationQR()">⬇️ Download QR</button>
+  <button onclick="printRegistrationQR()">🖨️ Print QR</button>
+</div>
+
+  </div>
+  <div class="card">
+    <h3>Registered People</h3>
+    <div id="registeredPeople"></div><div id="personalQR" style="display:none" class="card"><h3>Personal QR</h3><div id="personalQRCanvas"></div><p id="personalQRText"></p><button onclick="window.print()">🖨️ Print</button></div>
+  </div>
+</section>
+
+<section id="register" class="page" style="display:none">
+  <div class="card">
+    <h2 id="regTitle">Registration</h2>
+    <p class="muted">তথ্য পূরণ করে Submit করুন। Unique ID automatic তৈরি হবে।</p>
+    <div class="v3grid">
+      <input id="regName" placeholder="Full Name">
+      <input id="regPhone" type="tel" placeholder="Phone Number">
+      <input id="regAddress" placeholder="Full Address">
+      <input id="regBatch" placeholder="Batch / Room / Department">
+      <button type="button" onclick="window.submitRegistration()">Submit & Generate ID</button>
+    </div>
+    <div id="regResult"></div>
+  </div>
+</section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<section id="cloud" class="page" style="display:none">
+<div class="card">
+<h2>☁️ Cloud Database Setup</h2>
+<p class="muted">Online registration-এর জন্য Supabase Project URL ও Publishable key ব্যবহার করুন। Secret key কখনো browser app-এ দেবেন না।</p>
+<div class="v3grid">
+<input id="cloudUrl" placeholder="Supabase Project URL">
+<input id="cloudKey" placeholder="Supabase Publishable key">
+<button onclick="saveCloudConfig()">Save Cloud Settings</button>
+<button onclick="testCloud()">Test Connection</button>
+<p class="muted" style="margin-top:8px">Publishable key সাধারণত <b>sb_publishable_...</b> দিয়ে শুরু হয়। Secret key (<b>sb_secret_...</b>) ব্যবহার করবেন না।</p>
+</div>
+<div id="cloudStatus"></div>
+<div id="syncStatus" class="muted" style="margin-top:10px"></div>
+<button onclick="syncLocalPeopleToCloud()">☁️ Sync Registered People to Cloud</button>
+
+</div>
+<div class="card">
+<h3>Online Data Tables</h3>
+<p>People, Students, Payments, Purchases, Labour, Expenses, Bills এবং Attendance-এর জন্য database tables ব্যবহার করা যাবে।</p>
+</div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<section id="auth" class="page" style="display:none">
+<div class="card">
+<h2>🔑 Admin Cloud Login</h2>
+<p class="muted">Financial data দেখার আগে Supabase Admin account দিয়ে login করুন।</p>
+<div class="v3grid">
+<input id="authEmail" type="email" placeholder="Admin email">
+<input id="authPassword" type="password" placeholder="Password">
+<button onclick="adminLogin()">Login</button>
+<button onclick="adminLogout()">Logout</button>
+</div>
+<div id="authStatus"></div>
+</div>
+</section>
+<script>
+const key='canteen_manager_v1';
+let db=JSON.parse(localStorage.getItem(key)||'{"students":[],"purchases":[],"labors":[],"bills":[],"stocks":[],"menus":[],"masterStudents":[],"expenses":[]}');
+db.bills??=[];db.stocks??=[];db.menus??=[];
+const money=n=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:0});
+const today=()=>new Date().toISOString().slice(0,10);
+document.getElementById('bMonth').value=today().slice(0,7);
+document.getElementById('stDate').value=today();document.getElementById('mDate').value=today();document.getElementById('eDate').value=today();document.getElementById('reportMonth').value=today().slice(0,7);document.getElementById('aDate').value=today();document.getElementById('slDate').value=today();document.getElementById('cDate').value=today();
+document.getElementById('month').value=today().slice(0,7);
+['sDate','pDate','lDate'].forEach(x=>document.getElementById(x).value=today());
+function save(){localStorage.setItem(key,JSON.stringify(db));render();}
+function selectedMonth(){return document.getElementById('month').value}
+function inMonth(d){return String(d||'').slice(0,7)===selectedMonth()}
+function sums(){let inc=db.students.filter(x=>inMonth(x.date)).reduce((a,x)=>a+x.amount,0),food=db.purchases.filter(x=>inMonth(x.date)).reduce((a,x)=>a+x.amount,0),lab=db.labors.filter(x=>inMonth(x.date)).reduce((a,x)=>a+x.amount,0);return {inc,food,lab,profit:inc-food-lab}}
+function row(t,del){return `<tr>${t}<td class="right"><button class="btn danger" onclick="${del}">Delete</button></td></tr>`}
+function render(){
+ let s=sums(); document.getElementById('income').textContent=money(s.inc);document.getElementById('food').textContent=money(s.food);document.getElementById('labour').textContent=money(s.lab);document.getElementById('profit').textContent=money(s.profit);
+ document.getElementById('profit').className='num '+(s.profit>=0?'good':'bad');
+ let total=s.food+s.lab, fp=total?Math.round(s.food/total*100):0,lp=total?100-fp:0;document.getElementById('foodPct').textContent=fp+'%';document.getElementById('labPct').textContent=lp+'%';document.getElementById('foodBar').style.width=fp+'%';document.getElementById('labBar').style.width=lp+'%';
+ document.getElementById('summary').textContent=`${selectedMonth()} • আয় ${money(s.inc)} • মোট খরচ ${money(total)} • ${s.profit>=0?'Profit':'Loss'} ${money(Math.abs(s.profit))}`;
+ document.getElementById('billsTable').innerHTML=db.bills.filter(x=>x.month===selectedMonth()).map(x=>row(`<td>${x.sid}</td><td>${x.name}</td><td>${x.month}</td><td>${money(x.bill)}</td><td>${money(x.paid)}</td><td class="${x.bill-x.paid>0?'bad':'good'}">${money(Math.max(0,x.bill-x.paid))}</td>`,`del('bills',${x.id})`)).join('')||'<tr><td colspan="7">No records</td></tr>';
+ document.getElementById('stockTable').innerHTML=db.stocks.filter(x=>inMonth(x.date)).map(x=>row(`<td>${x.date}</td><td>${x.item}</td><td>${x.qty}</td><td>${x.unit}</td><td>${money(x.rate)}</td><td>${x.supplier}</td><td>${money(x.qty*x.rate)}</td>`,`del('stocks',${x.id})`)).join('')||'<tr><td colspan="8">No records</td></tr>';
+ document.getElementById('menuTable').innerHTML=db.menus.filter(x=>inMonth(x.date)).map(x=>row(`<td>${x.date}</td><td>${x.breakfast}</td><td>${x.lunch}</td><td>${x.dinner}</td><td>${x.special}</td>`,`del('menus',${x.id})`)).join('')||'<tr><td colspan="6">No records</td></tr>';
+ document.getElementById('studentsTable').innerHTML=db.students.filter(x=>inMonth(x.date)).sort((a,b)=>b.date.localeCompare(a.date)).map((x,i)=>row(`<td>${x.date}</td><td>${x.name}</td><td>${x.method}</td><td class="right">${money(x.amount)}</td>`,`del('students',${x.id})`)).join('')||'<tr><td colspan="5">No records</td></tr>';
+ document.getElementById('purchaseTable').innerHTML=db.purchases.filter(x=>inMonth(x.date)).sort((a,b)=>b.date.localeCompare(a.date)).map(x=>row(`<td>${x.date}</td><td>${x.cat}</td><td>${x.item}</td><td>${x.qty}</td><td>${x.vendor}</td><td class="right">${money(x.amount)}</td>`,`del('purchases',${x.id})`)).join('')||'<tr><td colspan="7">No records</td></tr>';
+ document.getElementById('laborTable').innerHTML=db.labors.filter(x=>inMonth(x.date)).sort((a,b)=>b.date.localeCompare(a.date)).map(x=>row(`<td>${x.date}</td><td>${x.name}</td><td>${x.type}</td><td>${x.note}</td><td class="right">${money(x.amount)}</td>`,`del('labors',${x.id})`)).join('')||'<tr><td colspan="6">No records</td></tr>';
+ let cash=db.students.filter(x=>inMonth(x.date)&&x.method==='Cash').reduce((a,x)=>a+x.amount,0),upi=db.students.filter(x=>inMonth(x.date)&&x.method==='UPI').reduce((a,x)=>a+x.amount,0),bank=db.students.filter(x=>inMonth(x.date)&&x.method==='Bank').reduce((a,x)=>a+x.amount,0),due=db.bills.filter(x=>x.month===selectedMonth()).reduce((a,x)=>a+Math.max(0,x.bill-x.paid),0);
+ document.getElementById('cashTotal').textContent=money(cash);document.getElementById('upiTotal').textContent=money(upi);document.getElementById('bankTotal').textContent=money(bank);document.getElementById('dueTotal').textContent=money(due);
+ document.getElementById('plIncome').textContent=money(s.inc);document.getElementById('plFood').textContent=money(s.food);document.getElementById('plLabour').textContent=money(s.lab);document.getElementById('plProfit').textContent=money(s.profit);document.getElementById('plProfit').className='num '+(s.profit>=0?'good':'bad');['r1','r2','r3','r4'].forEach((id,i)=>document.getElementById(id).textContent=money([s.inc,s.food,s.lab,s.profit][i]));
+ let all=[...db.students.map(x=>({...x,type:'Income',desc:x.name})),...db.purchases.map(x=>({...x,type:'Purchase',desc:x.item})),...db.labors.map(x=>({...x,type:'Labour',desc:x.name}))].filter(x=>inMonth(x.date)).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8);
+ document.getElementById('recent').innerHTML=all.map(x=>`<tr><td>${x.date}</td><td>${x.type}</td><td>${x.desc}</td><td class="right">${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="4">No records</td></tr>';
+}
+function addBill(){let sid=bId.value.trim(),name=bName.value.trim(),bill=+bBill.value,paid=+bPaid.value;if(!sid||!name||!bill)return alert('Student ID, নাম ও Bill দিন');db.bills.push({id:Date.now(),sid,name,month:bMonth.value,bill,paid});bId.value='';bName.value='';bBill.value='';bPaid.value='';save()}
+function addStock(){let item=stItem.value.trim(),qty=+stQty.value,rate=+stRate.value;if(!item||!qty||!rate)return alert('Item, Quantity ও Rate দিন');db.stocks.push({id:Date.now(),date:stDate.value,item,unit:stUnit.value,qty,rate,supplier:stSupplier.value});stItem.value='';stQty.value='';stRate.value='';stSupplier.value='';save()}
+function addMenu(){if(!mDate.value)return alert('Date দিন');db.menus.push({id:Date.now(),date:mDate.value,breakfast:mBreakfast.value,lunch:mLunch.value,dinner:mDinner.value,special:mSpecial.value});mBreakfast.value='';mLunch.value='';mDinner.value='';mSpecial.value='';save()}
+function addStudent(){let name=sName.value.trim(),amount=+sAmount.value;if(!name||!amount)return alert('নাম ও টাকা দিন');db.students.push({id:Date.now(),date:sDate.value,name,amount,method:sMethod.value});sName.value='';sAmount.value='';save()}
+function addPurchase(){let item=pItem.value.trim(),amount=+pAmount.value;if(!item||!amount)return alert('Item ও টাকা দিন');db.purchases.push({id:Date.now(),date:pDate.value,cat:pCat.value,item,qty:pQty.value,amount,vendor:pVendor.value});pItem.value='';pQty.value='';pAmount.value='';pVendor.value='';save()}
+function addLabor(){let name=lName.value.trim(),amount=+lAmount.value;if(!name||!amount)return alert('নাম ও টাকা দিন');db.labors.push({id:Date.now(),date:lDate.value,name,type:lType.value,amount,note:lNote.value});lName.value='';lAmount.value='';lNote.value='';save()}
+function del(type,id){db[type]=db[type].filter(x=>x.id!==id);save()}
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(x=>{x.classList.remove('show');x.style.display='none';});
+  const page=document.getElementById(pageId);
+  if(page){ page.classList.add('show'); page.style.display='block'; }
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===pageId));
+  if(pageId==='cloud' && typeof loadCloudConfig==='function') loadCloudConfig();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+document.querySelectorAll('.nav button[data-page]').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+document.getElementById('month').onchange=render;render();
+
+function addMasterStudent(){
+  const id=document.getElementById('smId').value.trim(), name=document.getElementById('smName').value.trim(), batch=document.getElementById('smBatch').value.trim();
+  if(!id||!name){alert('Student ID এবং Name দিন');return;}
+  if(db.masterStudents.some(s=>s.id.toLowerCase()===id.toLowerCase())){alert('এই Student ID আগে থেকেই আছে');return;}
+  db.masterStudents.push({id,name,batch});
+  document.getElementById('smId').value='';document.getElementById('smName').value='';document.getElementById('smBatch').value='';
+  save();
+}
+function renderMaster(){
+  const q=(document.getElementById('smSearch')?.value||'').toLowerCase();
+  const arr=db.masterStudents.filter(s=>(s.id+' '+s.name+' '+(s.batch||'')).toLowerCase().includes(q));
+  document.getElementById('masterTable').innerHTML='<div class="tablewrap"><table><tr><th>ID</th><th>Name</th><th>Batch/Room</th><th>Action</th></tr>'+
+    arr.map((s,i)=>`<tr><td>${esc(s.id)}</td><td>${esc(s.name)}</td><td>${esc(s.batch||'')}</td><td><button class="smallbtn" onclick="removeMaster('${escAttr(s.id)}')">Delete</button></td></tr>`).join('')+
+    '</table></div>';
+}
+function removeMaster(id){if(confirm('Studentটি delete করবেন?')){db.masterStudents=db.masterStudents.filter(s=>s.id!==id);save();}}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function escAttr(s){return String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+
+function addExpense(){
+  const date=document.getElementById('eDate').value, cat=document.getElementById('eCat').value, note=document.getElementById('eNote').value.trim();
+  const amount=+document.getElementById('eAmount').value, method=document.getElementById('eMethod').value;
+  if(!date||!amount){alert('Date ও Amount দিন');return;}
+  db.expenses.push({date,cat,note,amount,method});save();
+}
+function renderExpense(){
+  const m=selectedMonth();
+  const arr=db.expenses.filter(x=>inMonth(x.date,m));
+  document.getElementById('expenseTable').innerHTML='<div class="tablewrap"><table><tr><th>Date</th><th>Category</th><th>Description</th><th>Method</th><th>Amount</th></tr>'+
+    arr.map(x=>`<tr><td>${x.date}</td><td>${esc(x.cat)}</td><td>${esc(x.note)}</td><td>${x.method}</td><td>₹${(+x.amount).toFixed(2)}</td></tr>`).join('')+
+    '</table></div>';
+}
+
+function paymentTotalForStudent(id,month){
+  const s=db.students.filter(x=>inMonth(x.date,month) && ((x.studentId||'')===id || (x.name||'')===id));
+  return s.reduce((a,x)=>a+(+x.amount||0),0);
+}
+function billDue(b){
+  const paid=paymentTotalForStudent(b.studentId||b.id||'',b.month);
+  return Math.max(0,(+b.bill||0)-paid);
+}
+function createBillsFromMaster(){
+  const month=document.getElementById('reportMonth').value||selectedMonth();
+  const amount=prompt('প্রতি ছাত্রীর মাসিক Bill কত?', '0');
+  if(amount===null)return;
+  const bill=+amount;if(!(bill>=0)){alert('সঠিক bill দিন');return;}
+  let added=0;
+  db.masterStudents.forEach(s=>{
+    if(!db.bills.some(b=>b.studentId===s.id&&b.month===month)){
+      db.bills.push({studentId:s.id,name:s.name,month,bill,paid:0});added++;
+    }
+  });
+  save();alert(added+' টি monthly bill তৈরি হয়েছে। Payment আলাদা করে record করুন।');
+}
+function renderReport(){
+  const m=document.getElementById('reportMonth').value||selectedMonth();
+  const income=db.students.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const food=db.purchases.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const labour=db.labors.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const other=db.expenses.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const profit=income-food-labour-other;
+  const bills=db.bills.filter(b=>b.month===m);
+  const billed=bills.reduce((a,b)=>a+(+b.bill||0),0);
+  const collected=income;
+  const due=Math.max(0,billed-collected);
+  const cash=db.students.filter(x=>inMonth(x.date,m)&&x.method==='Cash').reduce((a,x)=>a+(+x.amount||0),0);
+  const upi=db.students.filter(x=>inMonth(x.date,m)&&x.method==='UPI').reduce((a,x)=>a+(+x.amount||0),0);
+  const bank=db.students.filter(x=>inMonth(x.date,m)&&x.method==='Bank').reduce((a,x)=>a+(+x.amount||0),0);
+  document.getElementById('reportOutput').innerHTML=`
+    <h2>Monthly Closing — ${m}</h2>
+    <div class="v3grid">
+      <div class="card"><b>Total Collection</b><h2>₹${income.toFixed(2)}</h2></div>
+      <div class="card"><b>Total Food Purchase</b><h2>₹${food.toFixed(2)}</h2></div>
+      <div class="card"><b>Labour</b><h2>₹${labour.toFixed(2)}</h2></div>
+      <div class="card"><b>Other Expenses</b><h2>₹${other.toFixed(2)}</h2></div>
+      <div class="card"><b>Net Profit/Loss</b><h2 class="${profit>=0?'success':'danger'}">₹${profit.toFixed(2)}</h2></div>
+      <div class="card"><b>Outstanding Due</b><h2>₹${due.toFixed(2)}</h2></div>
+    </div>
+    <hr>
+    <p><b>Billing:</b> ₹${billed.toFixed(2)} &nbsp; | &nbsp; <b>Collected:</b> ₹${collected.toFixed(2)} &nbsp; | &nbsp; <b>Due:</b> ₹${due.toFixed(2)}</p>
+    <p><b>Collection:</b> Cash ₹${cash.toFixed(2)} | UPI ₹${upi.toFixed(2)} | Bank ₹${bank.toFixed(2)}</p>
+    <button onclick="createBillsFromMaster()">⚡ Auto-create bills for all students</button>
+  `;
+}
+function exportBackup(){
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='canteen-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+function restoreBackup(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{try{
+    const x=JSON.parse(r.result);
+    if(!x||typeof x!=='object')throw new Error();
+    if(!confirm('বর্তমান data replace করে backup restore করবেন?'))return;
+    db=x;if(!db.masterStudents)db.masterStudents=[];if(!db.expenses)db.expenses=[];save();alert('Backup restored');
+  }catch(e){alert('Invalid backup file');}};r.readAsText(f);
+}
+
+function renderHistory(){
+  const q=(document.getElementById('histSearch')?.value||'').toLowerCase();
+  const m=document.getElementById('histMonth')?.value||selectedMonth();
+  const arr=db.students.filter(x=>inMonth(x.date,m)&&((x.name||'').toLowerCase().includes(q)||(x.studentId||'').toLowerCase().includes(q)));
+  const total=arr.reduce((a,x)=>a+(+x.amount||0),0);
+  document.getElementById('historyTable').innerHTML=
+    '<h3>Transactions: '+arr.length+' | Total: ₹'+total.toFixed(2)+'</h3>'+
+    '<div class="tablewrap"><table><tr><th>Transaction ID</th><th>Date</th><th>Student</th><th>Method</th><th>Amount</th><th>Receipt</th></tr>'+
+    arr.map(x=>`<tr><td>${esc(x.id||'PAY-OLD')}</td><td>${x.date}</td><td>${esc(x.name)}</td><td>${x.method}</td><td>₹${(+x.amount).toFixed(2)}</td><td><button class="smallbtn" onclick="printReceipt('${escAttr(x.id||'PAY-OLD')}')">Receipt</button></td></tr>`).join('')+
+    '</table></div>';
+}
+function printReceipt(id){
+  const x=db.students.find(s=>s.id===id); if(!x)return;
+  const w=window.open('','_blank','width=420,height=600');
+  w.document.write(`<html><head><title>Payment Receipt</title><style>body{font-family:Arial;padding:25px}h2{text-align:center}hr{border:0;border-top:1px solid #ccc}p{font-size:16px}</style></head><body>
+  <h2>CANTEEN PAYMENT RECEIPT</h2><hr>
+  <p><b>Transaction:</b> ${esc(x.id)}</p><p><b>Date:</b> ${x.date}</p><p><b>Student:</b> ${esc(x.name)}</p>
+  <p><b>Payment Method:</b> ${esc(x.method)}</p><p><b>Amount:</b> ₹${(+x.amount).toFixed(2)}</p><hr>
+  <p style="text-align:center">Thank you</p><script>window.print()<\/script>
+
+</body></html>`);
+  w.document.close();
+}
+function renderSuppliers(){
+  const q=(document.getElementById('supSearch')?.value||'').toLowerCase();
+  const map={};
+  db.purchases.filter(x=>inMonth(x.date,selectedMonth())).forEach(x=>{
+    const s=x.vendor||'Unknown Supplier';
+    if(!s.toLowerCase().includes(q))return;
+    if(!map[s])map[s]={count:0,total:0,items:{}};
+    map[s].count++;map[s].total+=(+x.amount||0);
+    map[s].items[x.item]=(map[s].items[x.item]||0)+(+x.qty||0);
+  });
+  const rows=Object.entries(map);
+  document.getElementById('supplierTable').innerHTML='<div class="tablewrap"><table><tr><th>Supplier</th><th>Transactions</th><th>Total Purchase</th><th>Items / Qty</th></tr>'+
+    rows.map(([s,v])=>`<tr><td>${esc(s)}</td><td>${v.count}</td><td>₹${v.total.toFixed(2)}</td><td>${Object.entries(v.items).map(([i,q])=>esc(i)+': '+q).join(', ')}</td></tr>`).join('')+
+    '</table></div>';
+}
+function csvEscape(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
+function downloadCSV(name,rows){
+  const csv=rows.map(r=>r.map(csvEscape).join(',')).join('\\n');
+  const blob=new Blob(['\\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+function exportPaymentsCSV(){
+  const rows=[['Transaction ID','Date','Student','Method','Amount']];
+  db.students.forEach(x=>rows.push([x.id||'',x.date,x.name,x.method,x.amount]));
+  downloadCSV('student-payments.csv',rows);
+}
+function exportPurchasesCSV(){
+  const rows=[['Date','Category','Item','Qty','Amount','Supplier']];
+  db.purchases.forEach(x=>rows.push([x.date,x.cat,x.item,x.qty,x.amount,x.vendor]));
+  downloadCSV('purchase-ledger.csv',rows);
+}
+
+function addAttendance(){
+ const date=document.getElementById('aDate').value;
+ if(!date){alert('Date দিন');return;}
+ db.attendance.push({date,count:+document.getElementById('aCount').value||0,
+ breakfast:+document.getElementById('aBreakfast').value||0,
+ lunch:+document.getElementById('aLunch').value||0,
+ dinner:+document.getElementById('aDinner').value||0,
+ note:document.getElementById('aNote').value.trim()});
+ save();
+}
+function renderAttendance(){
+ const m=selectedMonth(), arr=db.attendance.filter(x=>inMonth(x.date,m));
+ document.getElementById('attendanceTable').innerHTML='<div class="tablewrap"><table><tr><th>Date</th><th>Total</th><th>Breakfast</th><th>Lunch</th><th>Dinner</th><th>Note</th></tr>'+
+ arr.map(x=>`<tr><td>${x.date}</td><td>${x.count}</td><td>${x.breakfast}</td><td>${x.lunch}</td><td>${x.dinner}</td><td>${esc(x.note)}</td></tr>`).join('')+'</table></div>';
+}
+function addStockLedger(){
+ const date=document.getElementById('slDate').value,item=document.getElementById('slItem').value.trim(),unit=document.getElementById('slUnit').value.trim();
+ const stockIn=+document.getElementById('slIn').value||0,stockOut=+document.getElementById('slOut').value||0;
+ if(!date||!item){alert('Date ও Item দিন');return;}
+ db.stockLedger.push({date,item,unit,stockIn,stockOut,note:document.getElementById('slNote').value.trim()});save();
+}
+function renderStockLedger(){
+ const arr=db.stockLedger.filter(x=>inMonth(x.date,selectedMonth())), map={};
+ arr.forEach(x=>{if(!map[x.item])map[x.item]={unit:x.unit,in:0,out:0};map[x.item].in+=x.stockIn;map[x.item].out+=x.stockOut;});
+ document.getElementById('stockLedgerTable').innerHTML='<div class="tablewrap"><table><tr><th>Item</th><th>Unit</th><th>Total In</th><th>Total Out</th><th>Balance</th></tr>'+
+ Object.entries(map).map(([i,v])=>`<tr><td>${esc(i)}</td><td>${esc(v.unit)}</td><td>${v.in}</td><td>${v.out}</td><td><b>${(v.in-v.out).toFixed(2)}</b></td></tr>`).join('')+'</table></div>';
+}
+function saveClosing(){
+ const date=document.getElementById('cDate').value;if(!date){alert('Date দিন');return;}
+ const opening=+document.getElementById('cOpening').value||0, extra=+document.getElementById('cExtra').value||0, withdrawal=+document.getElementById('cWithdraw').value||0, actual=+document.getElementById('cActual').value||0;
+ const cashIn=db.students.filter(x=>x.date===date&&x.method==='Cash').reduce((a,x)=>a+(+x.amount||0),0);
+ const cashExpense=db.expenses.filter(x=>x.date===date&&x.method==='Cash').reduce((a,x)=>a+(+x.amount||0),0);
+ const expected=opening+cashIn+extra-cashExpense-withdrawal;
+ db.closings.push({date,opening,cashIn,extra,cashExpense,withdrawal,expected,actual,difference:actual-expected});save();
+ document.getElementById('closingResult').innerHTML=`<p><b>Expected Cash:</b> ₹${expected.toFixed(2)} &nbsp; <b>Actual:</b> ₹${actual.toFixed(2)} &nbsp; <b>Difference:</b> ₹${(actual-expected).toFixed(2)}</p>`;
+}
+function renderClosing(){
+ const arr=db.closings.filter(x=>inMonth(x.date,selectedMonth()));
+ document.getElementById('closingTable').innerHTML='<div class="tablewrap"><table><tr><th>Date</th><th>Opening</th><th>Cash In</th><th>Cash Expense</th><th>Expected</th><th>Actual</th><th>Difference</th></tr>'+
+ arr.map(x=>`<tr><td>${x.date}</td><td>₹${x.opening.toFixed(2)}</td><td>₹${x.cashIn.toFixed(2)}</td><td>₹${x.cashExpense.toFixed(2)}</td><td>₹${x.expected.toFixed(2)}</td><td>₹${x.actual.toFixed(2)}</td><td class="${x.difference<0?'danger':'success'}">₹${x.difference.toFixed(2)}</td></tr>`).join('')+'</table></div>';
+}
+function setAdminPin(){
+ const pin=document.getElementById('newPin').value.trim();
+ if(pin.length<4){alert('কমপক্ষে 4 digit PIN দিন');return;}
+ localStorage.setItem('canteen_admin_pin',pin);alert('Admin PIN saved');document.getElementById('newPin').value='';
+}
+function lockApp(){sessionStorage.removeItem('canteen_unlocked');location.reload();}
+function requirePin(){
+ const pin=localStorage.getItem('canteen_admin_pin');
+ if(!pin)return;
+ if(sessionStorage.getItem('canteen_unlocked')==='1')return;
+ let tries=0;
+ while(tries<3){
+   const entered=prompt('Canteen Manager Admin PIN দিন:');
+   if(entered===pin){sessionStorage.setItem('canteen_unlocked','1');return;}
+   tries++;
+ }
+ document.body.innerHTML='<div style="font-family:Arial;text-align:center;padding:80px"><h2>🔒 App Locked</h2><p>Reload the page and enter the correct PIN.</p></div>';
+}
+requirePin();
+function quickBill(){
+  if(!db.masterStudents.length){alert('আগে Student Master List-এ ছাত্রীরা যোগ করুন।');return;}
+  const month=prompt('কোন মাসের bill তৈরি করবেন? (YYYY-MM)',selectedMonth());
+  if(!month||!/^\d{4}-\d{2}$/.test(month)){alert('সঠিক মাস দিন, যেমন 2026-10');return;}
+  const amount=prompt('প্রতি ছাত্রীর মাসিক bill কত?', '0');
+  if(amount===null)return;
+  const bill=Number(amount);
+  if(!Number.isFinite(bill)||bill<0){alert('সঠিক bill amount দিন');return;}
+  let added=0;
+  db.masterStudents.forEach(s=>{
+    if(!db.bills.some(b=>b.studentId===s.id&&b.month===month)){
+      db.bills.push({studentId:s.id,name:s.name,month,bill,paid:0});added++;
+    }
+  });
+  save();
+  alert(added+' জনের bill তৈরি হয়েছে।');
+}
+function renderQuickSnapshot(){
+  const m=selectedMonth();
+  const students=db.masterStudents.length;
+  const collection=db.students.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const food=db.purchases.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const labour=db.labors.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const other=db.expenses.filter(x=>inMonth(x.date,m)).reduce((a,x)=>a+(+x.amount||0),0);
+  const billed=db.bills.filter(x=>x.month===m).reduce((a,x)=>a+(+x.bill||0),0);
+  document.getElementById('quickSnapshot').innerHTML=`
+  <div class="v3grid">
+   <div class="card"><b>Students</b><h2>${students}</h2></div>
+   <div class="card"><b>Collection</b><h2>₹${collection.toFixed(2)}</h2></div>
+   <div class="card"><b>Food</b><h2>₹${food.toFixed(2)}</h2></div>
+   <div class="card"><b>Labour</b><h2>₹${labour.toFixed(2)}</h2></div>
+   <div class="card"><b>Other</b><h2>₹${other.toFixed(2)}</h2></div>
+   <div class="card"><b>Billed</b><h2>₹${billed.toFixed(2)}</h2></div>
+   <div class="card"><b>Net</b><h2 class="${collection-food-labour-other>=0?'success':'danger'}">₹${(collection-food-labour-other).toFixed(2)}</h2></div>
+  </div>`;
+}
+function sanitizeDB(){
+  const arrays=['students','purchases','labors','bills','stocks','menus','masterStudents','expenses','attendance','stockLedger','closings','people'];
+  arrays.forEach(k=>{if(!Array.isArray(db[k]))db[k]=[];});
+}
+sanitizeDB();
+
+let registrationRole='student';
+
+function showRegistrationQR(role){
+  registrationRole=role;
+  const box=document.getElementById('qrBox');
+  box.innerHTML='<h3>'+(role==='student'?'Student Registration QR':'Labour Registration QR')+
+    '</h3><div id="qrCanvas"></div><p class="muted">এই QR print করে notice board-এ লাগাতে পারেন।</p>';
+  const u=new URL(window.location.href);
+  u.searchParams.set('register',role);
+  u.hash='';
+  if(window.QRCode){
+    new QRCode(document.getElementById('qrCanvas'),{
+      text:u.toString(),width:250,height:250
+    });
+  }else{
+    box.innerHTML+='<p>QR generator load হয়নি। Internet connection check করুন।</p>';
+  }
+}
+
+function openRegistration(role){
+  registrationRole=role;
+  document.querySelectorAll('.page').forEach(x=>x.style.display='none');
+  document.getElementById('register').style.display='block';
+  document.getElementById('regTitle').textContent=
+    role==='student'?'👩‍🎓 Student Registration':'👷 Labour Registration';
+}
+
+function generatePersonId(role){
+  const prefix=role==='student'?'STD':'LAB';
+  const year=new Date().getFullYear();
+  const used=new Set((db.people||[]).filter(x=>x.role===role).map(x=>x.id));
+  let n=1,id='';
+  do{id=prefix+'-'+year+'-'+String(n).padStart(4,'0');n++;}while(used.has(id));
+  return id;
+}
+
+async function submitRegistration(){
+  const result=document.getElementById('regResult');
+  try{
+    sanitizeDB();
+    const name=document.getElementById('regName').value.trim();
+    const phone=document.getElementById('regPhone').value.trim();
+    const address=document.getElementById('regAddress').value.trim();
+    const batch=document.getElementById('regBatch').value.trim();
+
+    if(!name||!phone||!address){
+      if(result) result.innerHTML='<p class="danger"><b>Name, Phone এবং Address অবশ্যই দিতে হবে।</b></p>';
+      return;
+    }
+
+    const normalized=phone.replace(/\D/g,'');
+    const duplicate=db.people.find(x=>String(x.phone||'').replace(/\D/g,'')===normalized);
+    if(duplicate){
+      if(result) result.innerHTML='<p class="danger"><b>এই phone number আগে থেকেই registered আছে। ID: '+esc(duplicate.id)+'</b></p>';
+      return;
+    }
+
+    const id=generatePersonId(registrationRole);
+    const person={id,role:registrationRole,name,phone,address,batch,createdAt:new Date().toISOString()};
+    db.people.push(person);
+    if(registrationRole==='student'&&!db.masterStudents.some(s=>s.id===id)){
+      db.masterStudents.push({id,name,batch});
+    }
+
+    // Save locally first and show the success result immediately.
+    save();
+    if(result){
+      result.innerHTML='<div class="card" style="margin-top:15px;text-align:center">'+
+        '<h2 class="success">Registration Successful ✅</h2>'+
+        '<p><b>Your ID:</b> '+esc(id)+'</p>'+
+        '<p><b>Name:</b> '+esc(name)+'</p>'+
+        '<p><b>Phone:</b> '+esc(phone)+'</p>'+
+        '<p><b>Address:</b> '+esc(address)+'</p>'+
+        '<p id="cloudSaveStatus" class="muted">☁️ Cloud sync চলছে...</p>'+
+        '<button type="button" onclick="showPersonalQR(\''+escAttr(id)+'\')">📲 Personal QR</button> '+
+        '<button type="button" onclick="window.print()">🖨️ Print</button></div>';
+    }
+    ['regName','regPhone','regAddress','regBatch'].forEach(x=>{const el=document.getElementById(x);if(el)el.value='';});
+    renderRegisteredPeople();
+
+    // Cloud sync must never block registration. Give it a short timeout.
+    if(typeof savePersonToCloud==='function'){
+      let cloudResult;
+      try{
+        cloudResult=await Promise.race([
+          savePersonToCloud(person),
+          new Promise(resolve=>setTimeout(()=>resolve({ok:false,reason:'timeout'}),7000))
+        ]);
+      }catch(err){ cloudResult={ok:false,reason:err.message||'cloud error'}; }
+      const cs=document.getElementById('cloudSaveStatus');
+      if(cs){
+        if(cloudResult && cloudResult.ok) cs.innerHTML='<span class="success">☁️ Cloud database-এও saved হয়েছে।</span>';
+        else if(cloudResult && cloudResult.reason==='not_configured') cs.innerHTML='<span class="muted">☁️ Local-এ saved হয়েছে। Cloud setup করা নেই।</span>';
+        else cs.innerHTML='<span class="danger">⚠️ Local-এ saved হয়েছে; Cloud sync হয়নি। পরে Sync করতে পারবেন।</span>';
+      }
+    }
+  }catch(e){
+    console.error('Registration error:',e);
+    if(result) result.innerHTML='<p class="danger"><b>Registration error:</b> '+esc(e.message||String(e))+'</p>';
+    else alert('Registration error: '+(e.message||String(e)));
+  }
+}
+window.submitRegistration=submitRegistration;
+
+function renderRegisteredPeople(){
+  const el=document.getElementById('registeredPeople'); if(!el)return;
+  const q=(document.getElementById('personSearch')?.value||'').toLowerCase();
+  const role=(document.getElementById('personRoleFilter')?.value||'');
+  const arr=(db.people||[]).slice().reverse().filter(x=>{
+    const hay=(x.id+' '+x.name+' '+x.phone+' '+x.address).toLowerCase();
+    return (!q||hay.includes(q))&&(!role||x.role===role);
+  });
+  el.innerHTML='<div class="tablewrap"><table><tr><th>ID</th><th>Type</th><th>Name</th><th>Phone</th><th>Address</th><th>Action</th></tr>'+
+    arr.map(x=>'<tr><td><b>'+esc(x.id)+'</b></td><td>'+
+    (x.role==='student'?'Student':'Labour')+'</td><td>'+esc(x.name)+
+    '</td><td>'+esc(x.phone)+'</td><td>'+esc(x.address)+
+    '</td><td><button class="smallbtn" onclick="showPersonalQR(\''+escAttr(x.id)+'\')">QR</button></td></tr>').join('')+
+    '</table></div>';
+}
+
+function showPersonalQR(id){
+  const person=(db.people||[]).find(x=>x.id===id); if(!person)return;
+  const box=document.getElementById('personalQR');
+  box.style.display='block';
+  document.getElementById('personalQRText').innerHTML='<b>'+esc(person.id)+'</b> — '+esc(person.name);
+  const c=document.getElementById('personalQRCanvas'); c.innerHTML='';
+  const u=new URL(window.location.href); u.hash='person-'+encodeURIComponent(id);
+  if(window.QRCode)new QRCode(c,{text:u.toString(),width:220,height:220});
+  box.scrollIntoView({behavior:'smooth'});
+}
+function handleRegistrationHash(){
+  const q=new URLSearchParams(location.search);
+  const reg=q.get('register');
+  if(reg==='student'||reg==='labour'){openRegistration(reg);return;}
+  if(location.hash==='#register-student')openRegistration('student');
+  if(location.hash==='#register-labour')openRegistration('labour');
+  if(location.hash.startsWith('#person-')){const id=decodeURIComponent(location.hash.slice(8));showPersonalQR(id);}
+}
+window.addEventListener('hashchange',handleRegistrationHash);
+handleRegistrationHash();
+
+
+function openCloudSetup(){
+  const modal=document.getElementById('cloudModal');
+  if(!modal)return;
+  const c=getCloudConfig();
+  document.getElementById('cloudModalUrl').value=c.url||'';
+  document.getElementById('cloudModalKey').value=c.key||'';
+  document.getElementById('cloudModalStatus').innerHTML='';
+  modal.style.display='flex';
+}
+function closeCloudSetup(){
+  const modal=document.getElementById('cloudModal');
+  if(modal)modal.style.display='none';
+}
+function saveCloudFromModal(){
+  const url=document.getElementById('cloudModalUrl').value.trim();
+  const key=document.getElementById('cloudModalKey').value.trim();
+  const status=document.getElementById('cloudModalStatus');
+  if(!/^https:\/\/.+\.supabase\.co$/.test(url)||!key){
+    status.innerHTML='<p class="danger"><b>Project URL</b> এবং <b>Publishable Key</b> ঠিকভাবে দিন।</p>';
+    return;
+  }
+  localStorage.setItem('canteen_cloud_config',JSON.stringify({url,key}));
+  if(document.getElementById('cloudUrl'))document.getElementById('cloudUrl').value=url;
+  if(document.getElementById('cloudKey'))document.getElementById('cloudKey').value=key;
+  status.innerHTML='<p class="success"><b>✅ Cloud settings saved.</b></p>';
+}
+async function testCloudFromModal(){
+  const url=document.getElementById('cloudModalUrl').value.trim();
+  const key=document.getElementById('cloudModalKey').value.trim();
+  const status=document.getElementById('cloudModalStatus');
+  if(!url||!key){status.innerHTML='<p class="danger">আগে Project URL ও Publishable Key দিন।</p>';return;}
+  localStorage.setItem('canteen_cloud_config',JSON.stringify({url,key}));
+  if(!window.supabase){status.innerHTML='<p class="danger">Supabase library load হয়নি। Internet connection check করুন।</p>';return;}
+  status.innerHTML='<p class="muted">⏳ Connection test চলছে...</p>';
+  try{
+    const client=window.supabase.createClient(url,key);
+    const {error}=await client.from('people').select('id').limit(1);
+    if(error){
+      status.innerHTML='<p class="danger">Database reached, but permission/table issue: '+esc(error.message)+'</p>';
+    }else{
+      status.innerHTML='<p class="success"><b>✅ Cloud database connection successful.</b></p>';
+    }
+  }catch(e){status.innerHTML='<p class="danger">'+esc(e.message)+'</p>';}
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeCloudSetup();});
+document.getElementById('cloudModal')?.addEventListener('click',function(e){if(e.target===this)closeCloudSetup();});
+
+function getCloudConfig(){
+  try{return JSON.parse(localStorage.getItem('canteen_cloud_config')||'{}');}catch(e){return {};}
+}
+function saveCloudConfig(){
+  const url=document.getElementById('cloudUrl').value.trim();
+  const key=document.getElementById('cloudKey').value.trim();
+  if(!/^https:\/\/.+\.supabase\.co/.test(url)||!key){
+    alert('Valid Supabase Project URL এবং Publishable key দিন।');
+    return;
+  }
+  localStorage.setItem('canteen_cloud_config',JSON.stringify({url,key}));
+  document.getElementById('cloudStatus').innerHTML='<p class="success"><b>Cloud settings saved on this device.</b></p>';
+}
+async function testCloud(){
+  const c=getCloudConfig();
+  if(!c.url||!c.key){alert('আগে Cloud Settings save করুন।');return;}
+  if(!window.supabase){alert('Cloud library load হয়নি। Internet connection check করুন।');return;}
+  try{
+    const client=window.supabase.createClient(c.url,c.key);
+    const {error}=await client.from('people').select('id').limit(1);
+    document.getElementById('cloudStatus').innerHTML=error?
+      '<p class="danger">Connection reached database, but table/permission needs setup: '+esc(error.message)+'</p>':
+      '<p class="success"><b>Cloud database connection successful.</b></p>';
+  }catch(e){
+    document.getElementById('cloudStatus').innerHTML='<p class="danger">'+esc(e.message)+'</p>';
+  }
+}
+function loadCloudConfig(){
+  const c=getCloudConfig();
+  if(document.getElementById('cloudUrl'))document.getElementById('cloudUrl').value=c.url||'';
+  if(document.getElementById('cloudKey'))document.getElementById('cloudKey').value=c.key||'';
+}
+
+async function cloudClient(){
+  const c=getCloudConfig();
+  if(!c.url||!c.key||!window.supabase)return null;
+  return window.supabase.createClient(c.url,c.key);
+}
+
+async function savePersonToCloud(person){
+  const client=await cloudClient();
+  if(!client)return {ok:false,reason:'not_configured'};
+  const row={
+    id:person.id, role:person.role, name:person.name,
+    phone:person.phone, address:person.address,
+    batch:person.batch||null
+  };
+  const {error}=await client.from('people').upsert(row,{onConflict:'id'});
+  if(error)return {ok:false,reason:error.message};
+  return {ok:true};
+}
+
+async function syncLocalPeopleToCloud(){
+  const status=document.getElementById('syncStatus');
+  if(status)status.textContent='Syncing...';
+  let ok=0,fail=0;
+  for(const person of (db.people||[])){
+    const r=await savePersonToCloud(person);
+    if(r.ok)ok++;else fail++;
+  }
+  if(status)status.innerHTML='<b>Sync complete:</b> '+ok+' uploaded, '+fail+' skipped/failed.';
+}
+
+async function cloudRegisterPerson(person){
+  const result=await savePersonToCloud(person);
+  if(result.ok)return true;
+  return false;
+}
+
+async function adminLogin(){
+  const c=getCloudConfig();
+  if(!c.url||!c.key||!window.supabase){alert('আগে Cloud Setup করুন।');return;}
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  if(!email||!password){alert('Email ও password দিন।');return;}
+  try{
+    const client=window.supabase.createClient(c.url,c.key);
+    const {data,error}=await client.auth.signInWithPassword({email,password});
+    document.getElementById('authStatus').innerHTML=error?
+      '<p class="danger">'+esc(error.message)+'</p>':
+      '<p class="success">Admin login successful.</p>';
+  }catch(e){document.getElementById('authStatus').innerHTML='<p class="danger">'+esc(e.message)+'</p>';}
+}
+async function adminLogout(){
+  const c=getCloudConfig();
+  if(!c.url||!c.key||!window.supabase)return;
+  const client=window.supabase.createClient(c.url,c.key);
+  await client.auth.signOut();
+  document.getElementById('authStatus').innerHTML='<p>Logged out.</p>';
+}
+
+let currentRegistrationQRRole='student';
+
+function savePublicAppUrl(){
+  const u=document.getElementById('publicAppUrl').value.trim();
+  if(!/^https?:\/\//i.test(u)){alert('একটি valid online URL দিন।');return;}
+  localStorage.setItem('canteen_public_app_url',u);
+  alert('Online App URL saved.');
+}
+function getPublicAppUrl(){
+  return localStorage.getItem('canteen_public_app_url')||window.location.href;
+}
+function showRegistrationQR(role){
+  currentRegistrationQRRole=role;
+  const box=document.getElementById('qrBox');
+  box.innerHTML='<h3>'+(role==='student'?'Student Registration QR':'Labour Registration QR')+
+    '</h3><div id="qrCanvas"></div><p class="muted">QR scan করলে '+(role==='student'?'Student':'Labour')+' registration form খুলবে।</p>';
+  const base=getPublicAppUrl();
+  const u=new URL(base);
+  u.hash='register-'+role;
+  if(window.QRCode){
+    new QRCode(document.getElementById('qrCanvas'),{text:u.toString(),width:280,height:280});
+    document.getElementById('qrActions').style.display='block';
+  }else{
+    box.innerHTML+='<p class="danger">QR library load হয়নি। Internet connection check করুন।</p>';
+  }
+}
+function downloadRegistrationQR(){
+  const canvas=document.querySelector('#qrCanvas canvas');
+  const img=document.querySelector('#qrCanvas img');
+  let data='';
+  if(canvas)data=canvas.toDataURL('image/png');
+  else if(img)data=img.src;
+  if(!data){alert('আগে Student বা Labour QR তৈরি করুন।');return;}
+  const a=document.createElement('a');
+  a.href=data;
+  a.download=(currentRegistrationQRRole==='student'?'student-registration-qr.png':'labour-registration-qr.png');
+  a.click();
+}
+function printRegistrationQR(){
+  const canvas=document.querySelector('#qrCanvas canvas');
+  const img=document.querySelector('#qrCanvas img');
+  let src=canvas?canvas.toDataURL('image/png'):(img?img.src:'');
+  if(!src){alert('আগে QR তৈরি করুন।');return;}
+  const title=currentRegistrationQRRole==='student'?'STUDENT REGISTRATION QR':'LABOUR REGISTRATION QR';
+  const w=window.open('','_blank','width=500,height=650');
+  w.document.write('<html><head><title>'+title+'</title><style>body{text-align:center;font-family:Arial;padding:40px}img{width:300px;height:300px}</style></head><body><h1>'+title+'</h1><img src="'+src+'"><p>Scan to Register</p><script>window.print()<\/script></body></html>');
+  w.document.close();
+}
+function loadPublicAppUrl(){
+  const x=document.getElementById('publicAppUrl');
+  if(x)x.value=localStorage.getItem('canteen_public_app_url')||'';
+}
+</script>
+
+<div id="cloudModal" role="dialog" aria-modal="true" aria-labelledby="cloudModalTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="cloudModalTitle">☁️ Cloud Database Setup</h2>
+      <button class="close-btn" type="button" onclick="closeCloudSetup()" aria-label="Close">×</button>
+    </div>
+    <p class="muted">Supabase Project URL এবং Publishable key দিন। Secret key বা database password এখানে দেবেন না।</p>
+    <label>Project URL</label>
+    <input id="cloudModalUrl" placeholder="https://your-project.supabase.co" autocomplete="off">
+    <label>Publishable Key</label>
+    <input id="cloudModalKey" placeholder="sb_publishable_..." autocomplete="off">
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="saveCloudFromModal()">💾 Save Cloud Settings</button>
+      <button class="btn secondary" type="button" onclick="testCloudFromModal()">🔌 Test Connection</button>
+    </div>
+    <div id="cloudModalStatus" style="margin-top:12px"></div>
+    <p class="muted" style="margin-top:12px;font-size:12px">Settings এই browser-এর local storage-এ রাখা হবে।</p>
+  </div>
+</div>
+</body></html>
